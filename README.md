@@ -6,8 +6,10 @@
 ## redis记录格式
 记录总共有多少目录
 `hss:dirs -> set(dir)`
+
 记录该目录最后一个文件的名字,新添加的文件必须大于该文件名字
 `hss:dir:SZHHSS07/188.2.138.22:lastfile -> string(filename)`
+
 记录该目录未处理的文件名,已处理的自动从集合删除
 `hss:dir:SZHHSS07/188.2.138.22:files -> set(filename)`
 
