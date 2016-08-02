@@ -6,14 +6,14 @@ import cmgd.zenghj.hss.common.CommonUtils._
 import cmgd.zenghj.hss.ftp.FtpUtils
 import cmgd.zenghj.hss.redis.RedisUtils._
 
-import akka.routing.{Router, RoundRobinRoutingLogic}
+import akka.routing.{BroadcastRoutingLogic, Router, RoundRobinRoutingLogic}
 
 /**
   * Created by cookeem on 16/7/28.
   */
 class CollectorMaster extends TraitClusterActor {
-  val routees = Vector[akka.routing.ActorRefRoutee]()
-  var router = Router(RoundRobinRoutingLogic(), routees)
+  var router = Router(RoundRobinRoutingLogic(), Vector[akka.routing.ActorRefRoutee]())
+  var workerRouter = Router(BroadcastRoutingLogic(), Vector[akka.routing.ActorRefRoutee]())
 
   def receive: Receive =
     eventReceive.orElse {
@@ -21,14 +21,24 @@ class CollectorMaster extends TraitClusterActor {
         if (member.hasRole("router")) {
           val ref = context.actorSelection(RootActorPath(member.address) / "user" / "collector-router")
           router = router.addRoutee(ref)
-          consoleLog("INFO", "current router:\n"+router.routees.mkString("\n"))
+          consoleLog("INFO", "current routers:\n" + router.routees.mkString("\n"))
+        }
+        if (member.hasRole("worker")) {
+          val ref = context.actorSelection(RootActorPath(member.address) / "user" / "getfile-worker")
+          workerRouter = workerRouter.addRoutee(ref)
+          consoleLog("INFO", "current workers:\n" + workerRouter.routees.mkString("\n"))
         }
         log.info(s"Member is Up: ${member.address}")
       case MemberRemoved(member, previousStatus) =>
         if (member.hasRole("router")) {
           val ref = context.actorSelection(RootActorPath(member.address) / "user" / "collector-router")
           router = router.removeRoutee(ref)
-          consoleLog("INFO", "current router:\n"+router.routees.mkString("\n"))
+          consoleLog("INFO", "current router:\n" + router.routees.mkString("\n"))
+        }
+        if (member.hasRole("worker")) {
+          val ref = context.actorSelection(RootActorPath(member.address) / "user" / "getfile-worker")
+          workerRouter = workerRouter.removeRoutee(ref)
+          consoleLog("INFO", "current workers:\n" + workerRouter.routees.mkString("\n"))
         }
         log.warning(s"Member is Removed: ${member.address} after $previousStatus")
       //通过ftp获取dir列表, 通知所有CollectorRouter
@@ -37,6 +47,13 @@ class CollectorMaster extends TraitClusterActor {
         currentDirs.foreach { dir =>
           router.route(DirectiveListFile(dir), self)
         }
+      //向所有GetFileWorker发送DirectiveStat指令
+      case DirectiveStat =>
+        workerRouter.route(DirectiveStat, self)
+      //接收GetFileWorker发送DirectiveStatResult指令
+      case DirectiveStatResult(fileCount, fileFailCount, recordCount) =>
+        consoleLog("INFO", s"worker: ${sender().path.address}")
+        consoleLog("INFO", s"process [$fileCount] files, [$recordCount] records, fail [$fileFailCount] files in $masterStatInterval seconds")
       case e =>
         log.error(s"Unhandled message: ${e.getClass} : $e ")
     }

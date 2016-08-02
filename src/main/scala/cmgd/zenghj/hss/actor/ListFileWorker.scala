@@ -18,7 +18,8 @@ class ListFileWorker extends Actor with ActorLogging {
       //进行目录文件列表工作,并且写入redis
       val newFiles: Array[String] = listFiles(dir)
       //把新的文件名写入到kafka中
-      filenameSinkKafka(dir, newFiles)
+      val newDirFiles = newFiles.map(filename => (dir, filename))
+      filenameSinkKafka(newDirFiles)
     case e =>
       log.error(s"Unhandled message: ${e.getClass} : $e ")
   }

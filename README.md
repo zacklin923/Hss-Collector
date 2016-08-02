@@ -27,7 +27,6 @@ HSS-Collector
 ## GetFileWorker: (getfile-worker)
 从kafka读取文件列表,并把文件ftp下载下来,入库到kafka的记录topic中
 
-
 ## 运行说明:
 先启动master,用于获取ftp目录下的文件夹. master可以开多个集群进程( 2551 和 2552 端口为akka集群的seed nodes端口, 务必先启动): 
 
@@ -43,5 +42,5 @@ HSS-Collector
 
 ## benchmark
 单机运行,单kafka节点,单redis节点,双线程afkaReactiveStream
-4745项日志,大小2.26GB, 入库时间12分钟, 入库效率3MB/s
+5088项日志, 大小2.4GB, 记录数2732349, 入库时间15分钟, 入库效率3036rps(3036记录每秒)
 

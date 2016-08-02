@@ -2,7 +2,7 @@ package cmgd.zenghj.hss.kafka
 
 import cmgd.zenghj.hss.common.CommonUtils._
 
-import java.io.FileReader
+import java.io.{File, FileReader}
 import java.util.Properties
 
 import com.twitter.chill.KryoInjection
@@ -22,7 +22,7 @@ object KafkaUtils {
   kafkaCreateTopic(kafkaZkUri, kafkaRecordsTopic, kafkaNumPartitions, kafkaReplication)
 
   //把新的文件名写入kafka,记录格式为Tuple2[dir, filename]
-  def filenameSinkKafka(dir: String, newFiles: Array[String]) = {
+  def filenameSinkKafka(newDirFiles: Array[(String, String)]) = {
     val startTime = System.currentTimeMillis()
     try {
       val props = new Properties()
@@ -35,24 +35,24 @@ object KafkaUtils {
       props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
       props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer")
       val producer = new KafkaProducer[String, Array[Byte]](props)
-      newFiles.foreach { filename =>
-        val record = (dir, filename)
+      newDirFiles.foreach { record =>
         val bytes = KryoInjection(record)
         producer.send(new ProducerRecord[String, Array[Byte]](kafkaFilesTopic, bytes))
       }
       producer.close()
       val duration = Math.round(System.currentTimeMillis() - startTime)
-      consoleLog("SUCCESS", s"file name sink to kafka success: dir = $dir # took $duration ms")
+      consoleLog("SUCCESS", s"file name sink to kafka success # took $duration ms")
     } catch {
       case e: Throwable =>
         val duration = Math.round(System.currentTimeMillis() - startTime)
-        consoleLog("ERROR", s"file name sink to kafka error: dir = $dir, ${e.getMessage}, ${e.getCause} # took $duration ms")
+        consoleLog("ERROR", s"file name sink to kafka error, ${e.getMessage}, ${e.getCause} # took $duration ms")
     }
   }
 
-  //把文件分解为记录后写入到kafka, 记录格式为Map[header, value]
-  def fileSinkKafka(filename: String) = {
+  //把文件分解为记录后写入到kafka, 记录格式为Map[header, value], 返回成功的记录数
+  def fileSinkKafka(filename: String): Int = {
     val startTime = System.currentTimeMillis()
+    var recordCount = 0
     try {
       val in = new FileReader(filename)
       val records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(in)
@@ -70,17 +70,23 @@ object KafkaUtils {
         val recordMap: Map[String, String] = record.toMap.map{ case (k,v) => (k,v)}.toMap
         val bytes = KryoInjection(recordMap)
         producer.send(new ProducerRecord[String, Array[Byte]](kafkaRecordsTopic, bytes))
+        recordCount += 1
       }
       in.close()
       records.close()
       producer.close()
+      val file = new File(filename)
+      if (file.exists()) {
+        file.delete()
+      }
       val duration = Math.round(System.currentTimeMillis() - startTime)
-      consoleLog("SUCCESS", s"file sink to kafka success: filename = $filename # took $duration ms")
+      consoleLog("SUCCESS", s"file sink to kafka success: filename = $filename $recordCount records # took $duration ms")
     } catch {
       case e: Throwable =>
         val duration = Math.round(System.currentTimeMillis() - startTime)
         consoleLog("ERROR", s"file sink to kafka error: filename = $filename, ${e.getMessage}, ${e.getCause} # took $duration ms")
     }
+    recordCount
   }
 
   def kafkaCreateTopic(zkUri: String, topic: String, numPartitions: Int, replicationFactor: Int): Boolean = {

@@ -13,6 +13,7 @@ object CommonUtils {
 
   val masterConfig = config.getConfig("cluster-router.master")
   val masterScheduleInterval = masterConfig.getInt("schedule-interval")
+  val masterStatInterval = masterConfig.getInt("stat-interval")
 
   val listFileRouterConfig = config.getConfig("cluster-router.listfile-router")
   val listFileRouterPoolSize = listFileRouterConfig.getInt("pool-size")

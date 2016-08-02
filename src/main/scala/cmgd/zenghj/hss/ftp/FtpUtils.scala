@@ -11,34 +11,42 @@ import org.apache.commons.net.ftp.{FTPFile, FTP, FTPClient}
   */
 case class FtpUtils(ftpHost: String, ftpPort: Int, ftpUser: String, ftpPass: String) {
   val ftpClient = new FTPClient()
+  var isLogin = false
 
   //连接ftp
-  def connect(): Boolean = {
+  def connect() = {
     try {
       //连接
       ftpClient.connect(ftpHost, ftpPort)
-      ftpClient.login(ftpUser, ftpPass)
-      //设置
-      ftpClient.enterLocalPassiveMode()
-      ftpClient.setFileType(FTP.BINARY_FILE_TYPE)
-      ftpClient.setControlKeepAliveTimeout(20)
+      isLogin = ftpClient.login(ftpUser, ftpPass)
+      if (isLogin) {
+        //设置
+        ftpClient.enterLocalPassiveMode()
+        ftpClient.setFileType(FTP.BINARY_FILE_TYPE)
+        ftpClient.setControlKeepAliveTimeout(20)
+      } else {
+        //登录失败则断开连接
+        ftpClient.disconnect()
+        isLogin = false
+        consoleLog("ERROR", s"ftp connect login error: ftpHost = $ftpHost, ftpPort = $ftpPort, ftpUser = $ftpUser, ftpPass = $ftpPass. ${ftpClient.getReplyString}")
+      }
     } catch {
       case e: Throwable =>
         consoleLog("ERROR", s"ftp connect error: ftpHost = $ftpHost, ftpPort = $ftpPort, ftpUser = $ftpUser, ftpPass = $ftpPass. ${ftpClient.getReplyString}")
         ftpClient.disconnect()
+        isLogin = false
         consoleLog("ERROR", s"ftp connect error: ftpHost = $ftpHost, ftpPort = $ftpPort, ftpUser = $ftpUser, ftpPass = $ftpPass. ${e.getMessage} ${e.getCause}")
     }
-    ftpClient.isConnected
   }
 
   //ftp上传文件
   def put(localPath: String, localFileName: String, remotePath: String, remoteFileName: String): Boolean = {
     var success = false
     try {
-      if (!ftpClient.isConnected) {
+      if (!isLogin) {
         connect()
       }
-      if (ftpClient.isConnected) {
+      if (isLogin) {
         //上传
         val is = new FileInputStream(new File(s"$localPath/$localFileName"))
         ftpClient.storeFile(s"$remotePath$remoteFileName", is)
@@ -51,6 +59,7 @@ case class FtpUtils(ftpHost: String, ftpPort: Int, ftpUser: String, ftpPass: Str
     } catch {
       case e: Throwable =>
         ftpClient.disconnect()
+        isLogin = false
         consoleLog("ERROR", s"ftp put error: localPath = $localPath, localFileName = $localFileName, remotePath = $remotePath, remoteFileName = $remoteFileName. ${e.getMessage} ${e.getCause}")
     }
     success
@@ -62,21 +71,22 @@ case class FtpUtils(ftpHost: String, ftpPort: Int, ftpUser: String, ftpPass: Str
     var errmsg = ""
     val startTime = System.currentTimeMillis()
     try {
-      if (!ftpClient.isConnected) {
+      if (!isLogin) {
         connect()
       }
-      if (ftpClient.isConnected) {
+      if (isLogin) {
         //下载
         val fos = new FileOutputStream(s"$localPath/$localFileName")
         ftpClient.setBufferSize(1024)
-        ftpClient.retrieveFile(s"$remotePath/$remoteFileName", fos)
-        fos.close()
-        ftpClient.disconnect()
-        success = true
+        success = ftpClient.retrieveFile(s"$remotePath/$remoteFileName", fos)
+        if (!success) {
+          errmsg = s"ftp get error: localPath = $localPath, localFileName = $localFileName, remotePath = $remotePath, remoteFileName = $remoteFileName. file not exists"
+        }
       } else {
-        ftpClient.disconnect()
-        errmsg = s"ftp get error: ftpHost = $ftpHost, ftpPort = $ftpPort, ftpUser = $ftpUser, ftpPass = $ftpPass"
+        errmsg = s"ftp get error: localPath = $localPath, localFileName = $localFileName, remotePath = $remotePath, remoteFileName = $remoteFileName. not connected"
       }
+      ftpClient.disconnect()
+      isLogin = false
     } catch {
       case e: Throwable =>
         errmsg = s"ftp get error: localPath = $localPath, localFileName = $localFileName, remotePath = $remotePath, remoteFileName = $remoteFileName. ${e.getMessage} ${e.getCause}"
@@ -96,10 +106,10 @@ case class FtpUtils(ftpHost: String, ftpPort: Int, ftpUser: String, ftpPass: Str
     var errmsg = ""
     val startTime = System.currentTimeMillis()
     try {
-      if (!ftpClient.isConnected) {
+      if (!isLogin) {
         connect()
       }
-      if (ftpClient.isConnected) {
+      if (isLogin) {
         ret = mode match {
           case 0 => ftpClient.listFiles(remotePath)
           case 1 => ftpClient.listFiles(remotePath).filter(f => f.isDirectory)
@@ -107,12 +117,14 @@ case class FtpUtils(ftpHost: String, ftpPort: Int, ftpUser: String, ftpPass: Str
           case _ => ftpClient.listFiles(remotePath)
         }
         ftpClient.disconnect()
+        isLogin = false
       } else {
         errmsg = s"ftp list error: ftpHost = $ftpHost, ftpPort = $ftpPort, ftpUser = $ftpUser, ftpPass = $ftpPass"
       }
     } catch {
       case e: Throwable =>
         ftpClient.disconnect()
+        isLogin = false
         errmsg = s"ftp list error: remotePath = $remotePath, mode = $mode. ${e.getMessage} ${e.getCause}"
     }
     val duration = Math.round(System.currentTimeMillis() - startTime)
@@ -130,6 +142,7 @@ case class FtpUtils(ftpHost: String, ftpPort: Int, ftpUser: String, ftpPass: Str
     var success = false
     try {
       ftpClient.disconnect()
+      isLogin = false
       success = true
     } catch {
       case e: Throwable =>
