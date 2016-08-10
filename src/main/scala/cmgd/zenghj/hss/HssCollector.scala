@@ -82,7 +82,7 @@ object HssCollector extends App {
   } catch {
     case e: Throwable =>
       val formatter = new HelpFormatter()
-      consoleLog("ERROR", s"${e.getMessage}, ${e.getCause}")
+      consoleLog("ERROR", s"${e.getMessage}, ${e.getStackTrace.map{_.toString}.mkString("\n")}")
       formatter.printHelp("Start HSS log collector cluster.\n", options, true)
   }
 }

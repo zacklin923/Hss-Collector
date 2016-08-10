@@ -4,10 +4,8 @@ import java.io.File
 
 import cmgd.zenghj.hss.common.CommonUtils._
 
-import akka.actor.Props
 import akka.cluster.ClusterEvent.{MemberRemoved, MemberUp}
 import akka.NotUsed
-import akka.routing.{DefaultResizer, RoundRobinPool}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl._
 import cmgd.zenghj.hss.ftp.FtpUtils

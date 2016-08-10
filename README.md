@@ -5,15 +5,15 @@ HSS-Collector
 支持ftp目录为二级目录,日志文件为包含header的RFC.RFC4180的csv文件的kafka入库
 
 ## redis记录格式
-记录总共有多少目录
+记录总共有多少目录:
 
 ``hss:dirs -> set(dir)``
 
-记录该目录最后一个文件的名字,新添加的文件必须大于该文件名字
+记录该目录最后一个文件的名字,新添加的文件必须大于该文件名字:
 
 ``hss:dir:SZHHSS07/188.2.138.22:lastfile -> string(filename)``
 
-记录该目录未处理的文件名,已处理的自动从集合删除
+记录该目录未处理的文件名,已处理的自动从集合删除:
 
 ``hss:dir:SZHHSS07/188.2.138.22:files -> set(filename)``
 
@@ -38,7 +38,7 @@ HSS-Collector
 
 最后启动worker,获取ftp文件,并且把文件进行记录入库. worker可以开多个集群进程, 提升入库效率:
 
-``cmgd.zenghj.hss.HssCollector -s router -p 2552``
+``cmgd.zenghj.hss.HssCollector -s worker -p 2553``
 
 ## benchmark
 单机运行,单kafka节点,单redis节点,双线程afkaReactiveStream
