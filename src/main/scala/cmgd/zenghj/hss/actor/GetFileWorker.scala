@@ -1,15 +1,13 @@
 package cmgd.zenghj.hss.actor
 
-import java.io.File
-
+import akka.actor.{Props, ActorRef}
+import akka.routing.{RoundRobinPool, DefaultResizer}
 import cmgd.zenghj.hss.common.CommonUtils._
 
 import akka.cluster.ClusterEvent.{MemberRemoved, MemberUp}
 import akka.NotUsed
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl._
-import cmgd.zenghj.hss.ftp.FtpUtils
-import cmgd.zenghj.hss.kafka.KafkaUtils._
 import cmgd.zenghj.hss.redis.RedisUtils._
 import com.softwaremill.react.kafka.KafkaMessages.KafkaMessage
 import com.softwaremill.react.kafka.{ConsumerProperties, ReactiveKafka}
@@ -28,14 +26,15 @@ class GetFileWorker extends  TraitClusterActor {
   implicit val materializer = ActorMaterializer()
   implicit val ec = system.dispatcher
 
+  val resizer = DefaultResizer(lowerBound = getFileWorkerStreamCount, upperBound = getFileWorkerStreamCount * 2)
+  val ftpKafkaRouter: ActorRef = context.actorOf(RoundRobinPool(getFileWorkerStreamCount, Some(resizer)).props(Props[FtpKafkaWorker]), "ftpkafka-router")
+
   var fileCount = 0
   var recordCount = 0
   var fileFailCount = 0
 
   //启动从kafka读取文件列表, 下载ftp文件后,把文件记录入库到kafka的reactive kafka stream
-  (1 to getFileWorkerStreamCount).foreach { i =>
-    ftpToKafkaStream()
-  }
+  ftpToKafkaStream()
 
   //从kafka读取文件列表, 下载ftp文件后,把文件记录入库到kafka
   def ftpToKafkaStream(): NotUsed = {
@@ -52,33 +51,20 @@ class GetFileWorker extends  TraitClusterActor {
       val tryObj = KryoInjection.invert(kafkaMsg.message)
       tryObj match {
         case Success(obj) =>
-          val tryObj2 = Try(obj.asInstanceOf[Tuple2[String, String]])
+          val tryObj2 = Try(obj.asInstanceOf[(String, String)])
           tryObj2 match {
             case Success((dir, filename)) =>
-              //进行ftp文件下载,并把文件写入到kafka
-              val ftpUtils = FtpUtils(ftpHost, ftpPort, ftpUser, ftpPass)
-              val file = new File(s"$ftpLocalRoot/$dir")
-              if (!file.exists()) {
-                file.mkdirs()
-              }
-              val localPath = file.getAbsolutePath
-              val remotePath = s"$ftpRoot/$dir"
-              val ftpGetSuccess = ftpUtils.get(localPath, filename, remotePath, filename)
-              var returnCount = 0
-              if (ftpGetSuccess) {
-                val absFilename = s"$localPath/$filename"
-                returnCount = fileSinkKafka(absFilename)
-                fileCount += 1
-                recordCount += returnCount
-              } else {
-                fileFailCount += 1
-              }
-              //完成kafka入库后删除redis上的记录
+              //只要从kafka成功读取目录名和文件名,就删除redis上的hss:dir:xxx:files记录
               redisFileRemove(dir, filename)
+              //只要从kafka成功读取目录名和文件名,插入到redis上的hss:processingfiles记录中
+              redisProcessingFileInsert(dir, filename)
+              ftpKafkaRouter ! DirectiveFtpKafka(dir, filename)
             case Failure(e) =>
+              fileFailCount += 1
               consoleLog("ERROR", s"kafka consume files topic serialize error: ${e.getMessage}, ${e.getCause}")
           }
         case Failure(e) =>
+          fileFailCount += 1
           consoleLog("ERROR", s"kafka consume files topic serialize error: ${e.getMessage}, ${e.getCause}")
       }
     }.to(Sink.ignore).run()
@@ -95,6 +81,10 @@ class GetFileWorker extends  TraitClusterActor {
         fileCount = 0
         recordCount = 0
         fileFailCount = 0
+      case DirectiveFtpKafkaResult(retFileFailCount, retRecordCount) =>
+        fileCount += 1
+        recordCount += retRecordCount
+        fileFailCount += retFileFailCount
       case e =>
         log.error(s"Unhandled message: ${e.getClass} : $e ")
     }

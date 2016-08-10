@@ -4,6 +4,7 @@ import akka.actor.RootActorPath
 import akka.cluster.ClusterEvent.{MemberRemoved, MemberUp}
 import cmgd.zenghj.hss.common.CommonUtils._
 import cmgd.zenghj.hss.ftp.FtpUtils
+import cmgd.zenghj.hss.kafka.KafkaUtils._
 import cmgd.zenghj.hss.redis.RedisUtils._
 
 import akka.routing.{BroadcastRoutingLogic, Router, RoundRobinRoutingLogic}
@@ -14,6 +15,12 @@ import akka.routing.{BroadcastRoutingLogic, Router, RoundRobinRoutingLogic}
 class CollectorMaster extends TraitClusterActor {
   var router = Router(RoundRobinRoutingLogic(), Vector[akka.routing.ActorRefRoutee]())
   var workerRouter = Router(BroadcastRoutingLogic(), Vector[akka.routing.ActorRefRoutee]())
+
+  //从redis中获取还没有完成处理的文件清单,重新写回kafka
+  val processingFiles: Array[(String, String)] = redisProcessingFilesGet()
+  filenameSinkKafka(processingFiles)
+  //成功重写回kafka的filename后,删除redis的hss:processingfiles所有记录
+  redisProcessingFileDeleteAll()
 
   def receive: Receive =
     eventReceive.orElse {

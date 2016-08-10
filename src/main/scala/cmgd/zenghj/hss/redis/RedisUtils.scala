@@ -140,4 +140,83 @@ object RedisUtils {
     }
     files
   }
+
+  def redisProcessingFileInsert(dir: String, filename: String) = {
+    var success = false
+    var jedis: Jedis = null
+    try {
+      jedis = pool.getResource
+      jedis.sadd(s"hss:processingfiles", s"$dir:$filename")
+      success = true
+    } catch {
+      case e: Throwable =>
+        consoleLog("ERROR", s"redisProcessingFileInsert error: ${e.getMessage}, ${e.getCause}")
+    } finally {
+      if (jedis != null) {
+        jedis.close()
+      }
+    }
+    success
+  }
+
+  def redisProcessingFilesGet() = {
+    var jedis: Jedis = null
+    var files = Array[(String, String)]()
+    try {
+      jedis = pool.getResource
+      jedis.smembers(s"hss:processingfiles").foreach { file =>
+        val fileSplit = file.split(":")
+        if (fileSplit.length == 2) {
+          val dir = fileSplit(0)
+          val filename = fileSplit(1)
+          files = files :+ (dir, filename)
+        }
+      }
+    } catch {
+      case e: Throwable =>
+        consoleLog("ERROR", s"redisProcessingFilesGet error: ${e.getMessage}, ${e.getCause}")
+    } finally {
+      if (jedis != null) {
+        jedis.close()
+      }
+    }
+    files
+  }
+
+  def redisProcessingFileRemove(dir: String, filename: String) = {
+    var success = false
+    var jedis: Jedis = null
+    try {
+      jedis = pool.getResource
+      jedis.srem(s"hss:processingfiles", s"$dir:$filename")
+      success = true
+    } catch {
+      case e: Throwable =>
+        consoleLog("ERROR", s"redisProcessingFileRemove error: ${e.getMessage}, ${e.getCause}")
+    } finally {
+      if (jedis != null) {
+        jedis.close()
+      }
+    }
+    success
+  }
+
+  def redisProcessingFileDeleteAll() = {
+    var success = false
+    var jedis: Jedis = null
+    try {
+      jedis = pool.getResource
+      jedis.del(s"hss:processingfiles")
+      success = true
+    } catch {
+      case e: Throwable =>
+        consoleLog("ERROR", s"redisProcessingFileDeleteAll error: ${e.getMessage}, ${e.getCause}")
+    } finally {
+      if (jedis != null) {
+        jedis.close()
+      }
+    }
+    success
+  }
+
 }

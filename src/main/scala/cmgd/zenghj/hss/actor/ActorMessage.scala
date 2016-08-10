@@ -13,4 +13,9 @@ case class DirectiveListFile(dir: String)
 case object DirectiveStat
 //发送指令,从GetFileWorker获取统计信息的指令
 case class DirectiveStatResult(fileCount: Int, fileFailCount: Int, recordCount: Int)
+//发送指令,通知FtpKafkaWorker进行ftp获取以及kafka入库
+case class DirectiveFtpKafka(dir: String, filename: String)
+//发送指令,返回GetFileWorker的统计信息
+case class DirectiveFtpKafkaResult(fileFailCount: Int, recordCount: Int)
+
 
