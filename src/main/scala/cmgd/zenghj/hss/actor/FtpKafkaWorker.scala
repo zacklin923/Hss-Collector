@@ -17,13 +17,13 @@ class FtpKafkaWorker  extends Actor with ActorLogging {
       self ! PoisonPill
     case DirectiveFtpKafka(dir, filename) =>
       //进行ftp文件下载,并把文件写入到kafka
-      val ftpUtils = FtpUtils(ftpHost, ftpPort, ftpUser, ftpPass)
-      val file = new File(s"$ftpLocalRoot/$dir")
+      val ftpUtils = FtpUtils(configFtpHost, configFtpPort, configFtpUser, configFtpPass)
+      val file = new File(s"$configFtpLocalRoot/$dir")
       if (!file.exists()) {
         file.mkdirs()
       }
       val localPath = file.getAbsolutePath
-      val remotePath = s"$ftpRoot/$dir"
+      val remotePath = s"$configFtpRoot/$dir"
       val ftpGetSuccess = ftpUtils.get(localPath, filename, remotePath, filename)
       var recordCount = 0
       var fileFailCount = 0

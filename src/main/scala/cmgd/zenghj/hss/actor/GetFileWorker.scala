@@ -26,8 +26,8 @@ class GetFileWorker extends  TraitClusterActor {
   implicit val materializer = ActorMaterializer()
   implicit val ec = system.dispatcher
 
-  val resizer = DefaultResizer(lowerBound = getFileWorkerStreamCount, upperBound = getFileWorkerStreamCount * 2)
-  val ftpKafkaRouter: ActorRef = context.actorOf(RoundRobinPool(getFileWorkerStreamCount, Some(resizer)).props(Props[FtpKafkaWorker]), "ftpkafka-router")
+  val resizer = DefaultResizer(lowerBound = configGetFileWorkerStreamCount, upperBound = configGetFileWorkerStreamCount * 2)
+  val ftpKafkaRouter: ActorRef = context.actorOf(RoundRobinPool(configGetFileWorkerStreamCount, Some(resizer)).props(Props[FtpKafkaWorker]), "ftpkafka-router")
 
   var fileCount = 0
   var recordCount = 0
@@ -41,10 +41,10 @@ class GetFileWorker extends  TraitClusterActor {
     val kafka = new ReactiveKafka()
     //从kafka-files-topic获取最新的文件
     val publisher: Publisher[KafkaMessage[Array[Byte]]] = kafka.consume(ConsumerProperties(
-      brokerList = kafkaBrokers,
-      zooKeeperHost = kafkaZkUri,
-      topic = kafkaFilesTopic,
-      groupId = kafkaConsumeGroup,
+      brokerList = configKafkaBrokers,
+      zooKeeperHost = configKafkaZkUri,
+      topic = configKafkaFilesTopic,
+      groupId = configKafkaConsumeGroup,
       decoder = new DefaultDecoder()
     ))
     Source.fromPublisher(publisher).map { kafkaMsg =>

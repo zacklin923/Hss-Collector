@@ -10,8 +10,8 @@ import akka.routing.{DefaultResizer, RoundRobinPool}
   * Created by cookeem on 16/7/28.
   */
 class CollectorRouter extends TraitClusterActor {
-  val resizer = DefaultResizer(lowerBound = listFileRouterLowBound, upperBound = listFileRouterUpperBound)
-  val listFileRouter: ActorRef = context.actorOf(RoundRobinPool(listFileRouterPoolSize, Some(resizer)).props(Props[ListFileWorker]), "listfile-router")
+  val resizer = DefaultResizer(lowerBound = configListFileRouterLowBound, upperBound = configListFileRouterUpperBound)
+  val listFileRouter: ActorRef = context.actorOf(RoundRobinPool(configListFileRouterPoolSize, Some(resizer)).props(Props[ListFileWorker]), "listfile-router")
 
   def receive: Receive =
     eventReceive.orElse {

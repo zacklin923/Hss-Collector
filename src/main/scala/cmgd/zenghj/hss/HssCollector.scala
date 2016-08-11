@@ -50,11 +50,11 @@ object HssCollector extends App {
           val collectorMasterRef = system.actorOf(Props[CollectorMaster], "collector-master")
           import system.dispatcher
           //启动定期任务, 通知CollectorRouter进行文件夹列表任务
-          system.scheduler.schedule(masterScheduleInterval.seconds, masterScheduleInterval.seconds) {
+          system.scheduler.schedule(configMasterScheduleInterval.seconds, configMasterScheduleInterval.seconds) {
             collectorMasterRef ! DirectiveListDir
           }
           //启动定期任务, 通知GetFileWorker收集执行结果信息
-          system.scheduler.schedule(masterStatInterval.seconds, masterStatInterval.seconds) {
+          system.scheduler.schedule(configMasterStatInterval.seconds, configMasterStatInterval.seconds) {
             collectorMasterRef ! DirectiveStat
           }
         }

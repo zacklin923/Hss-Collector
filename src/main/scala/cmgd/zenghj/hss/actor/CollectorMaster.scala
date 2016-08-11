@@ -60,19 +60,19 @@ class CollectorMaster extends TraitClusterActor {
       //接收GetFileWorker发送DirectiveStatResult指令
       case DirectiveStatResult(fileCount, fileFailCount, recordCount) =>
         consoleLog("INFO", s"worker: ${sender().path.address}")
-        consoleLog("INFO", s"process [$fileCount] files, [$recordCount] records, fail [$fileFailCount] files in $masterStatInterval seconds")
+        consoleLog("INFO", s"process [$fileCount] files, [$recordCount] records, fail [$fileFailCount] files in $configMasterStatInterval seconds")
       case e =>
         log.error(s"Unhandled message: ${e.getClass} : $e ")
     }
 
-  val ftpUtils = new FtpUtils(ftpHost, ftpPort, ftpUser, ftpPass)
+  val ftpUtils = new FtpUtils(configFtpHost, configFtpPort, configFtpUser, configFtpPass)
 
   //从ftp上获取最新的dir列表
   //返回: Array[dir]
   def listDir(): Array[String] = {
-    val dirLv1Arr = ftpUtils.ls(ftpRoot, 1).map(_.getName)
+    val dirLv1Arr = ftpUtils.ls(configFtpRoot, 1).map(_.getName)
     val dirs: Array[String] = dirLv1Arr.map{ dirLv1 =>
-      val dirLv2Arr = ftpUtils.ls(s"$ftpRoot/$dirLv1", 1).map(_.getName)
+      val dirLv2Arr = ftpUtils.ls(s"$configFtpRoot/$dirLv1", 1).map(_.getName)
       (dirLv1 , dirLv2Arr)
     }.flatMap{ case (dirLv1 , dirLv2Arr) => dirLv2Arr.map{dirLv2 => s"$dirLv1/$dirLv2"}}
     redisDirsUpdate(dirs)

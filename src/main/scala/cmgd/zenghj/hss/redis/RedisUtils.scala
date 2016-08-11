@@ -12,10 +12,10 @@ import scala.collection.JavaConversions._
 object RedisUtils {
   val poolConfig = new JedisPoolConfig()
   var pool: JedisPool = null
-  if (redisPass == "") {
-    pool = new JedisPool(poolConfig, redisHost, redisPort, 5000)
+  if (configRedisPass == "") {
+    pool = new JedisPool(poolConfig, configRedisHost, configRedisPort, 5000)
   } else {
-    pool = new JedisPool(poolConfig, redisHost, redisPort, 5000, redisPass)
+    pool = new JedisPool(poolConfig, configRedisHost, configRedisPort, 5000, configRedisPass)
   }
 
   var jedis: Jedis = null

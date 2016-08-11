@@ -18,15 +18,15 @@ import scala.collection.JavaConversions._
   */
 object KafkaUtils {
   //初始化生成kafkaFilesTopic以及kafkaRecordsTopic
-  kafkaCreateTopic(kafkaZkUri, kafkaFilesTopic, kafkaNumPartitions, kafkaReplication)
-  kafkaCreateTopic(kafkaZkUri, kafkaRecordsTopic, kafkaNumPartitions, kafkaReplication)
+  kafkaCreateTopic(configKafkaZkUri, configKafkaFilesTopic, configKafkaNumPartitions, configKafkaReplication)
+  kafkaCreateTopic(configKafkaZkUri, configKafkaRecordsTopic, configKafkaNumPartitions, configKafkaReplication)
 
   //把新的文件名写入kafka,记录格式为Tuple2[dir, filename]
   def filenameSinkKafka(newDirFiles: Array[(String, String)]) = {
     val startTime = System.currentTimeMillis()
     try {
       val props = new Properties()
-      props.put("bootstrap.servers", kafkaBrokers)
+      props.put("bootstrap.servers", configKafkaBrokers)
       props.put("acks", "all")
       props.put("retries", 0.toString)
       props.put("batch.size", 1024.toString)
@@ -37,7 +37,7 @@ object KafkaUtils {
       val producer = new KafkaProducer[String, Array[Byte]](props)
       newDirFiles.foreach { record =>
         val bytes = KryoInjection(record)
-        producer.send(new ProducerRecord[String, Array[Byte]](kafkaFilesTopic, bytes))
+        producer.send(new ProducerRecord[String, Array[Byte]](configKafkaFilesTopic, bytes))
       }
       producer.close()
       val duration = Math.round(System.currentTimeMillis() - startTime)
@@ -57,7 +57,7 @@ object KafkaUtils {
       val in = new FileReader(filename)
       val records = CSVFormat.RFC4180.withFirstRecordAsHeader().parse(in)
       val props = new Properties()
-      props.put("bootstrap.servers", kafkaBrokers)
+      props.put("bootstrap.servers", configKafkaBrokers)
       props.put("acks", "all")
       props.put("retries", 0.toString)
       props.put("batch.size", 1024.toString)
@@ -69,7 +69,7 @@ object KafkaUtils {
       records.foreach{ record =>
         val recordMap: Map[String, String] = record.toMap.map{ case (k,v) => (k,v)}.toMap
         val bytes = KryoInjection(recordMap)
-        producer.send(new ProducerRecord[String, Array[Byte]](kafkaRecordsTopic, bytes))
+        producer.send(new ProducerRecord[String, Array[Byte]](configKafkaRecordsTopic, bytes))
         recordCount += 1
       }
       in.close()
